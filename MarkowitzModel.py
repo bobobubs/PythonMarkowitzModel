@@ -75,24 +75,50 @@ def generatePortfolios(returns):
         
     return np.array(portfolioWeights), np.array(portfolioMeans), np.array(portfolioRisks)
 
+def statistics(weights, returns):
+    portfolioReturn = np.sum(returns.mean() * weights) * NUM_TRADING_DAYS
+    portfolioVolatility = np.sqrt(np.dot(weights.T, np.dot(returns.cov() * NUM_TRADING_DAYS, weights)))
+    
+    return np.array([portfolioReturn, portfolioVolatility, portfolioReturn/portfolioVolatility])
 
+def minFunctionSharpe(weights, returns):
+    #return sharpe ratios negative to optimize for max val
+    return -statistics(weights, returns)[2]
+
+def optimizePortfolio(weights, returns):
+    #sum of portfolio weights = 1
+    constraints = {'type' : 'eq', 'fun': lambda x: np.sum(x) -1}
+    #Each stock must have a weight between 0 and 1
+    bounds = tuple((0,1)for i in range(len(stocks)))
+    #perform optimization
+    return optimization.minimize(fun=minFunctionSharpe, x0=weights[0], args=returns, method='SLSQP'
+                          ,bounds = bounds, constraints=constraints)
+
+def displayOptimalPortfolio(optimum, returns):
+    print("Optimal porfolio: ", optimum['x'].round(3))
+    print("Expected return, volatility, Sharpe ratio: ",
+          statistics(optimum['x'],returns).round(3))
+    
 #plots the expected means, returns, and sharpe ratio for each input portfolio
-def showPortfolios(returns, volatilities):
+def showPortfolios(opt, rets, returns, volatilities):
     plt.figure(figsize = (10,6))
     plt.scatter(volatilities, returns, c = returns/volatilities, marker = 'o')
     plt.grid(True)
     plt.xlabel("Expected Volatility")
     plt.ylabel("Expected Returns")
     plt.colorbar(label = "Sharpe Ratio")
+    plt.plot(statistics(opt['x'], rets)[1], statistics(opt['x'], rets)[0], 'g*', markersize = 30)
     plt.show()
 
 if __name__ == '__main__':
     data = getData()
     showData(data)
     logDailyReturns = calcReturn(data)
-    showStats(logDailyReturns)
+    #showStats(logDailyReturns)
     
-    weights, means, risks = generatePortfolios(logDailyReturns)
-    showPortfolios(means, risks)
+    portfolioWeights, means, risks = generatePortfolios(logDailyReturns)
+    optimum = optimizePortfolio(portfolioWeights, logDailyReturns)
+    displayOptimalPortfolio(optimum, logDailyReturns)
+    showPortfolios(optimum, logDailyReturns, means, risks)
     
     
