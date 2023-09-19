@@ -10,26 +10,38 @@ import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.optimize as optimization
+import ccxt
+import datetime
 
 NUM_TRADING_DAYS = 252
 
 NUM_PORTFOLIOS = 10000
 
 #list of stocks
-stocks = ['AAPL', 'WMT', 'TSLA', 'GE', 'AMZN', 'DB']
+stocks = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'OP/USDT', 'ARB/USDT', 'SAND/USDT', 'MANA/USDT', 'GRT/USDT']
 
 #define timeframe
-startdate = '2021-01-01'
-enddate = '2022-01-01'
+startdate = '2023-01-01'
+
+#end date set to today.
+enddate = datetime.datetime.today().strftime('%Y-%m-%d')
 
 #funcion to collect data from yahoo finance
 def getData():
     data = {}
+    kucoin = ccxt.kucoin()  # Using kucoin as an example
     for stock in stocks:
-        ticker = yf.Ticker(stock)
-        data[stock] = ticker.history(start = startdate, end = enddate)['Close']
+        timeframe = '1d'  # Daily candles
+        since = kucoin.parse8601(startdate)  # Using your startdate variable
+        ohlcv = kucoin.fetch_ohlcv(stock, timeframe, since)
+        
+        # Convert the data to a DataFrame and extract the 'close' prices
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        data[stock] = df.set_index('timestamp')['close']
         
     return pd.DataFrame(data)
+
 
 #displays stock ticker data in a chart
 def showData(data):
